@@ -1,0 +1,127 @@
+Data Pipeline for Clickstream Analysis
+
+Approach:
+To build the real-time data pipeline for DataCo, the following approach was taken:
+
+    Data Ingestion from Kafka:
+        Apache Kafka was used for ingesting clickstream data.
+        A Kafka consumer was created to consume messages from the specified Kafka topic.
+        Each received message was processed and passed to the data storage component.
+
+
+
+
+from kafka import KafkaConsumer
+
+# Create a Kafka consumer
+consumer = KafkaConsumer('clickstream_topic', bootstrap_servers='your_kafka_bootstrap_servers')
+
+# Start consuming messages
+for message in consumer:
+    # Process the received message
+    process_message(message)
+
+
+In the code above, make sure to replace 'clickstream_topic' with the actual Kafka topic name and 'your_kafka_bootstrap_servers' with the appropriate Kafka server addresses.
+
+
+2.     Data Storage:
+        Apache HBase was chosen as the data store for storing the clickstream data.
+        The data was stored in HBase with the following schema:
+        Row key: Unique identifier for each click event.
+        Column families:
+                        click_data: Contains columns for user ID, timestamp, and URL of the clicked page.
+                        geo_data: Contains columns for the user's country and city determined by their IP address.
+                        user_agent_data: Contains columns for the user's browser, operating system, and device determined by their user agent string.
+
+
+
+
+import happybase
+
+# Connect to HBase
+connection = happybase.Connection('your_hbase_host', port=9090)
+
+# Get or create a table in HBase
+table_name = 'clickstream_data'
+table = connection.table(table_name)
+
+# Store the clickstream data in HBase
+def store_clickstream_data(row_key, click_data, geo_data, user_agent_data):
+    with table.batch() as batch:
+        batch.put(row_key, {
+            b'click_data:user_id': click_data['user_id'],
+            b'click_data:timestamp': click_data['timestamp'],
+            b'click_data:url': click_data['url'],
+            b'geo_data:country': geo_data['country'],
+            b'geo_data:city': geo_data['city'],
+            b'user_agent_data:browser': user_agent_data['browser'],
+            b'user_agent_data:os': user_agent_data['os'],
+            b'user_agent_data:device': user_agent_data['device']
+        })
+
+
+Make sure to replace 'your_hbase_host' with the appropriate HBase host address.
+
+
+
+
+
+3.Periodic Data Processing with Apache Spark:
+        Apache Spark was used for periodic data processing and aggregation.
+        The clickstream data stored in HBase was loaded into Spark as a DataFrame.
+        The data was then aggregated by URL and country, calculating the number of clicks, unique users, and average time spent on each URL by users from each country.
+
+
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import avg, count, countDistinct
+
+# Create a SparkSession
+spark = SparkSession.builder.appName('ClickstreamProcessor').getOrCreate()
+
+# Load data from HBase into Spark DataFrame
+hbase_options = {
+    'hbase.table': 'clickstream_data',
+    'hbase.columns.mapping': '''
+        click_data:user_id STRING,
+        click_data:timestamp STRING,
+        click_data:url STRING,
+        geo_data:country STRING,
+        geo_data:city STRING,
+        user_agent_data:browser STRING,
+        user_agent_data:os STRING,
+        user_agent_data:device STRING
+    ''',
+    'hbase.spark.config.override': 'spark.hbase.host=your_hbase_host,spark.hbase.port=9090'
+}
+
+df = spark.read.format('org.apache.hadoop.hbase.spark') \
+    .options(**hbase_options) \
+    .load()
+
+# Perform data processing and aggregation
+processed_data = df.groupBy('url', 'country') \
+    .agg(
+        countDistinct('user_id').alias('unique_users'),
+        count('url').alias('clicks'),
+        avg('timestamp').alias('average_time_spent')
+    )
+
+
+
+
+# Indexing in Elasticsearch:
+        Elasticsearch was used for indexing the processed data.
+        The processed data was written to Elasticsearch, with each record representing the aggregated metrics for each URL and country combination.
+
+processed_data.write.format('org.elasticsearch.spark.sql') \
+    .option('es.nodes', 'your_elasticsearch_nodes') \
+    .option('es.resource', 'your_index_name/doc_type') \
+    .mode('append') \
+    .save()
+
+
+Make sure to replace 'your_hbase_host' with the appropriate HBase host address and 'your_elasticsearch_nodes' with the Elasticsearch node addresses.
+
+Remember to install the necessary dependencies, such as kafka-python, happybase, pyspark, and elasticsearch-spark, and configure the connection parameters and mapping appropriately.
