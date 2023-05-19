@@ -89,6 +89,3 @@ processed_data.write.format('org.elasticsearch.spark.sql') \
     .save()
 
 
-#Make sure to replace 'your_hbase_host' with the appropriate HBase host address and 'your_elasticsearch_nodes' with the Elasticsearch node addresses.
-
-#Remember to install the necessary dependencies, such as kafka-python, happybase, pyspark, and elasticsearch-spark, and configure the connection parameters and mapping appropriately.
