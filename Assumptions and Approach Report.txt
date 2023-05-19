@@ -1,0 +1,35 @@
+Data Pipeline for Clickstream Analysis
+
+Approach:
+To build the real-time data pipeline for DataCo, the following approach was taken:
+
+  1. Data Ingestion from Kafka:
+        Apache Kafka was used for ingesting clickstream data.
+        A Kafka consumer was created to consume messages from the specified Kafka topic.
+        Each received message was processed and passed to the data storage component.
+
+
+  2.  Data Storage:
+        Apache HBase was chosen as the data store for storing the clickstream data.
+        The data was stored in HBase with the following schema:
+        Row key: Unique identifier for each click event.
+        Column families:
+                        click_data: Contains columns for user ID, timestamp, and URL of the clicked page.
+                        geo_data: Contains columns for the user's country and city determined by their IP address.
+                        user_agent_data: Contains columns for the user's browser, operating system, and device determined by their user agent string.
+
+
+  3. Periodic Data Processing with Apache Spark:
+        Apache Spark was used for periodic data processing and aggregation.
+        The clickstream data stored in HBase was loaded into Spark as a DataFrame.
+        The data was then aggregated by URL and country, calculating the number of clicks, unique users, and average time spent on each URL by users from each country.
+
+
+  
+  4. Indexing in Elasticsearch:
+        Elasticsearch was used for indexing the processed data.
+        The processed data was written to Elasticsearch, with each record representing the aggregated metrics for each URL and country combination.
+
+
+
+
